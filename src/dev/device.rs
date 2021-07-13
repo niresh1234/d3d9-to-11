@@ -147,6 +147,10 @@ impl Device {
         &self.ctx
     }
 
+    pub fn dx11_device(&self) -> &d3d11::Device {
+        &self.device
+    }
+
     /// Creates the default swap chain for this device.
     fn create_default_swap_chain(&mut self, pp: &mut D3DPRESENT_PARAMETERS) -> Result<(), Error> {
         // Note: this function is usually used for non-implicit swap chains,
