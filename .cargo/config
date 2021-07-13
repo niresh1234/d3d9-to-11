@@ -1,11 +1,12 @@
 [build]
 # Default target to build for is 32-bit Windows.
-target = "i686-pc-windows-gnu"
+#target = "i686-pc-windows-gnu"
+target = "i686-pc-windows-msvc"
 
 rustflags = [
     "-C", "panic=abort",
     # We need the stdcall fixups to fix the name of the exported symbols.
-    "-C", "link-args=toolchain/d3d9.def -Wl,--enable-stdcall-fixup"
+    #"-C", "link-args=toolchain/d3d9.def -Wl,--enable-stdcall-fixup"#,
 ]
 
 [target.i686-pc-windows-gnu]
