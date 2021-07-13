@@ -2,17 +2,12 @@
 
 #![feature(arbitrary_self_types)]
 #![feature(llvm_asm)]
-#![feature(const_fn)]
 #![feature(integer_atomics)]
 #![feature(try_trait)]
 #![cfg_attr(feature = "cargo-clippy", warn(clippy))]
 #![cfg_attr(
     feature = "cargo-clippy",
-    allow(
-        new_without_default,
-        new_ret_no_self,
-        not_unsafe_ptr_arg_deref
-    )
+    allow(new_without_default, new_ret_no_self, not_unsafe_ptr_arg_deref)
 )]
 
 #[macro_use]

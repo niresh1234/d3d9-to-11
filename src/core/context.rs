@@ -58,7 +58,8 @@ impl Context {
                 } else {
                     None
                 }
-            }).fuse()
+            })
+            .fuse()
             .collect();
 
         let ctx = Self {
@@ -95,7 +96,7 @@ impl Context {
 
         warn!("Application tried to register software device");
 
-        // We don't suppor software rendering, but we report success here since
+        // We don't support software rendering, but we report success here since
         // this call would simply allow software rasterization in cases where
         // the graphics adapter does not support it.
         Error::Success
@@ -357,7 +358,8 @@ impl Context {
             cp,
             pp,
             self.factory.clone(),
-        )?.into();
+        )?
+        .into();
 
         Error::Success
     }
