@@ -1,7 +1,10 @@
-use winapi::shared::d3d9::*;
-use winapi::um::unknwnbase::IUnknownVtbl;
+use winapi::{
+    shared::d3d9::*,
+    um::unknwnbase::{IUnknown, IUnknownVtbl},
+};
 
-use com_impl::{implementation, ComInterface};
+use com_impl::implementation;
+use std::sync::atomic::AtomicU32;
 
 use crate::core::*;
 use crate::d3d11;
@@ -12,6 +15,7 @@ use super::Device;
 /// Structure used as the base for all the D3D9 device resources.
 /// Use the `impl_resource` macro to implement its functions in inherited classes.
 pub struct Resource {
+    refs: AtomicU32,
     /// Need to hold a reference back to the parent device.
     device: *const Device,
     /// Usage flags of this resource.
@@ -34,6 +38,7 @@ impl Resource {
         ty: ResourceType,
     ) -> Self {
         Self {
+            refs: AtomicU32::new(1),
             device,
             usage,
             pool,
@@ -63,11 +68,11 @@ impl Resource {
     }
 }
 
-impl ComInterface<IUnknownVtbl> for Resource {
+/*impl ComInterface<IUnknownVtbl> for Resource {
     fn create_vtable() -> IUnknownVtbl {
         unsafe { std::mem::zeroed() }
     }
-}
+}*/
 
 #[repr(C)]
 struct Thunk {
@@ -88,6 +93,8 @@ impl std::ops::DerefMut for Thunk {
         &mut self.rsrc
     }
 }
+
+impl_iunknown!(struct Resource: IUnknown, IDirect3DResource9);
 
 #[implementation(IDirect3DResource9)]
 impl Resource {
