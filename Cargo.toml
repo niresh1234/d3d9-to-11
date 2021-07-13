@@ -9,20 +9,27 @@ edition = "2018"
 name = "d3d9"
 crate-type = ["cdylib"]
 
+[features]
+default = ["env_logger"]
+
 [dependencies]
 log = "0.4"
-env_logger = "0.5"
+env_logger = {version = "0.5", optional = true}
+win_dbg_logger = { version = "0.1.0", optional = true }
 comptr = { git = "https://github.com/GabrielMajeri/comptr-rs" }
 #com-impl = { git = "https://github.com/GabrielMajeri/com-impl-rs" }
 com-impl = { path = "../com-impl-rs" }
 bitflags = "1"
 nalgebra = "0.16"
+widestring = "0.4.3"
 
 [dependencies.winapi]
 version = "0.3"
 features = [
     "winerror",
     "d3d9",
+    "d3d9types",
+    "ntdef",
     "dxgi",
     "d3d11",
     "winuser",
@@ -30,3 +37,6 @@ features = [
 
 [workspace]
 members = ["tests"]
+
+[profile.release]
+lto = true
