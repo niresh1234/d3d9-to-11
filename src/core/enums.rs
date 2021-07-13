@@ -4,6 +4,7 @@ use bitflags::*;
 
 bitflags! {
     /// Resource usage flags.
+    #[repr(transparent)]
     pub struct UsageFlags: u32 {
         /// Indicates this resource is dynamic, i.e. will be mapped and
         /// written to frequently.
@@ -44,6 +45,7 @@ bitflags! {
 
 bitflags! {
     /// Resource locking (mapping) flags.
+    #[repr(transparent)]
     pub struct LockFlags: u32 {
         /// Resource will only be read from.
         const READ_ONLY = 1 << 4;
