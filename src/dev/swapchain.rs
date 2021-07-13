@@ -1,7 +1,4 @@
-use std::{
-    cmp, mem, ptr,
-    sync::atomic::{AtomicU32, Ordering},
-};
+use std::{cmp, mem, ptr, sync::atomic::AtomicU32};
 
 use winapi::shared::{d3d9::*, d3d9types::*, dxgi::*, dxgitype::*, windef::HWND, winerror};
 use winapi::um::d3d11::*;
