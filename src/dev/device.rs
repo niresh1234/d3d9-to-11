@@ -116,7 +116,7 @@ impl Device {
 
                 let mut ptr = ptr::null_mut();
 
-                device.create_depth_stencil_surface(
+                if_not_success_err!(device.create_depth_stencil_surface(
                     width,
                     height,
                     fmt,
@@ -125,7 +125,7 @@ impl Device {
                     discard,
                     &mut ptr,
                     shared_handle,
-                )?;
+                ));
 
                 Some(ComPtr::new(ptr))
             };
@@ -499,21 +499,21 @@ impl Device {
         discard: u32,
         ret: *mut *mut Surface,
         shared_handle: usize,
-    ) -> Result<(), Error> {
-        let ret = check_mut_ref(ret)?;
+    ) -> Error {
+        let ret = if_error!(check_mut_ref(ret));
 
         if shared_handle != 0 {
             error!("Shared resources are not supported");
-            return Err(Error::InvalidCall);
+            return Error::InvalidCall;
         }
 
         if discard != 0 {
             error!("Discarding depth/stencil buffer not supported");
         }
 
-        let texture = d3d11::Texture2D::new_ds(&self.device, (width, height), fmt)?;
+        let texture = if_error!(d3d11::Texture2D::new_ds(&self.device, (width, height), fmt));
 
-        let ds_view = texture.create_ds_view(&self.device)?;
+        let ds_view = if_error!(texture.create_ds_view(&self.device));
 
         let data = SurfaceData::DepthStencil(ds_view);
 
@@ -526,7 +526,7 @@ impl Device {
         )
         .into();
 
-        Ok(())
+        Error::Success
     }
 
     /// Sets the current depth / stencil buffer.
