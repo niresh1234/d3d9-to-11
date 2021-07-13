@@ -1,7 +1,4 @@
-use std::{
-    mem, ptr,
-    sync::atomic::{AtomicU32, Ordering},
-};
+use std::{mem, ptr, sync::atomic::AtomicU32};
 
 use comptr::ComPtr;
 use winapi::ctypes::c_void;

@@ -29,11 +29,13 @@ macro_rules! impl_iunknown {
             }
 
             fn add_ref(&mut self) -> u32 {
+                use std::sync::atomic::Ordering;
                 let prev = self.refs.fetch_add(1, Ordering::SeqCst);
                 prev + 1
             }
 
             fn release(&mut self) -> u32 {
+                use std::sync::atomic::Ordering;
                 let prev = self.refs.fetch_sub(1, Ordering::SeqCst);
                 if prev == 1 {
                     let _box = unsafe { Box::from_raw(self as *mut _) };
