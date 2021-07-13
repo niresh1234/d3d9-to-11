@@ -13,7 +13,7 @@ use super::{
     fmt::{d3d_format_to_dxgi, is_display_mode_format},
     *,
 };
-use crate::{Error, Result};
+use crate::Error;
 
 /// This class represents a physical graphics adapter (GPU).
 pub struct Adapter {
@@ -34,7 +34,7 @@ pub struct Adapter {
 
 impl Adapter {
     /// Creates a new adapter.
-    pub fn new(index: u32, adapter: *mut IDXGIAdapter) -> Result<Self> {
+    pub fn new(index: u32, adapter: *mut IDXGIAdapter) -> Result<Self, Error> {
         // DXGI interface representing a physical device.
         let adapter = ComPtr::new(adapter);
 
@@ -42,7 +42,7 @@ impl Adapter {
             let mut desc = mem::uninitialized();
             let result = adapter.GetDesc(&mut desc);
 
-            check_hresult(result, "Failed to get adapter description")?;
+            if_not_success_err!(check_hresult(result, "Failed to get adapter description"));
 
             desc
         };
@@ -70,10 +70,11 @@ impl Adapter {
                 let mut desc = mem::uninitialized();
                 let result = output.GetDesc(&mut desc);
 
-                check_hresult(result, "Failed to get output description")?;
+                if_not_success_err!(check_hresult(result, "Failed to get output description"));
 
                 Ok(desc)
-            }).ok();
+            })
+            .ok();
 
         // We need to also create the D3D11 device now.;
         let mut feature_level = 0;
@@ -95,7 +96,7 @@ impl Adapter {
                 ptr::null_mut(),
             );
 
-            check_hresult(result, "Failed to create D3D11 device")?;
+            if_not_success_err!(check_hresult(result, "Failed to create D3D11 device"));
 
             ComPtr::new(device)
         };
@@ -202,7 +203,8 @@ impl Adapter {
         let mode_cache = self.mode_cache.borrow();
         let modes = &mode_cache[&fmt];
 
-        modes.get(index as usize)
+        modes
+            .get(index as usize)
             // Fill in the structure if it was found.
             .map(|mode| D3DDISPLAYMODE {
                 Width: mode.Width,

@@ -3,7 +3,6 @@
 #![feature(arbitrary_self_types)]
 #![feature(llvm_asm)]
 #![feature(integer_atomics)]
-#![feature(try_trait)]
 #![cfg_attr(feature = "cargo-clippy", warn(clippy))]
 #![cfg_attr(
     feature = "cargo-clippy",
@@ -17,7 +16,7 @@ extern crate log;
 mod macros;
 
 mod error;
-pub use self::error::{Error, Result};
+pub use self::error::Error;
 
 pub mod core;
 

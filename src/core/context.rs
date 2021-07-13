@@ -23,7 +23,7 @@ use super::{
     fmt::{is_depth_stencil_format, is_display_mode_format},
     *,
 };
-use crate::{dev::Device, Error, Result};
+use crate::{dev::Device, Error};
 
 /// D3D9 interface which stores all application context.
 ///
@@ -37,14 +37,14 @@ pub struct Context {
 
 impl Context {
     /// Creates a new D3D9 context.
-    pub fn new() -> Result<ComPtr<Context>> {
+    pub fn new() -> Result<ComPtr<Context>, Error> {
         // We first have to create a factory, which is the equivalent of this interface in DXGI terms.
         let factory = unsafe {
             let uuid = dxgi::IDXGIFactory::uuidof();
             let mut factory: *mut dxgi::IDXGIFactory = ptr::null_mut();
 
             let result = dxgi::CreateDXGIFactory(&uuid, &mut factory as *mut _ as usize as *mut _);
-            check_hresult(result, "Failed to create DXGI factory")?;
+            if_not_success_err!(check_hresult(result, "Failed to create DXGI factory"));
 
             ComPtr::new(factory)
         };
@@ -72,16 +72,16 @@ impl Context {
         Ok(unsafe { new_com_interface(ctx) })
     }
 
-    fn check_adapter(&self, adapter: u32) -> Result<&Adapter> {
+    fn check_adapter(&self, adapter: u32) -> Result<&Adapter, Error> {
         self.adapters
             .get(adapter as usize)
             .ok_or(Error::InvalidCall)
     }
 
-    fn check_devty(&self, dev_ty: D3DDEVTYPE) -> Error {
+    fn check_devty(&self, dev_ty: D3DDEVTYPE) -> Result<(), Error> {
         match dev_ty {
-            D3DDEVTYPE_HAL => Error::Success,
-            _ => Error::InvalidCall,
+            D3DDEVTYPE_HAL => Ok(()),
+            _ => Err(Error::InvalidCall),
         }
     }
 }
@@ -92,8 +92,7 @@ impl_iunknown!(struct Context: IUnknown, IDirect3D9);
 impl Context {
     /// Used to register a software rasterizer.
     fn register_software_device(&self, init_fn: *mut c_void) -> Error {
-        check_not_null(init_fn)?;
-
+        if_not_success!(check_not_null(init_fn));
         warn!("Application tried to register software device");
 
         // We don't support software rendering, but we report success here since
@@ -116,8 +115,8 @@ impl Context {
         _flags: u32,
         ident: *mut D3DADAPTER_IDENTIFIER9,
     ) -> Error {
-        let adapter = self.check_adapter(adapter)?;
-        let ident = check_mut_ref(ident)?;
+        let adapter = if_error!(self.check_adapter(adapter));
+        let ident = if_error!(check_mut_ref(ident));
 
         *ident = adapter.identifier();
 
@@ -140,10 +139,10 @@ impl Context {
         i: u32,
         mode: *mut D3DDISPLAYMODE,
     ) -> Error {
-        let adapter = self.check_adapter(adapter)?;
-        let mode = check_mut_ref(mode)?;
+        let adapter = if_error!(self.check_adapter(adapter));
+        let mode = if_error!(check_mut_ref(mode));
 
-        *mode = adapter.mode(fmt, i).ok_or(Error::NotAvailable)?;
+        *mode = if_error!(adapter.mode(fmt, i).ok_or(Error::NotAvailable));
 
         Error::Success
     }
@@ -151,7 +150,7 @@ impl Context {
     /// Retrieve the current display mode of the GPU.
     fn get_adapter_display_mode(&self, adapter: u32, mode: *mut D3DDISPLAYMODE) -> Error {
         let monitor = self.get_adapter_monitor(adapter);
-        let mode = check_mut_ref(mode)?;
+        let mode = if_error!(check_mut_ref(mode));
 
         let mi = unsafe {
             let mut mi: winuser::MONITORINFO = mem::uninitialized();
@@ -182,8 +181,8 @@ impl Context {
         _bb_fmt: D3DFORMAT,
         _windowed: u32,
     ) -> Error {
-        self.check_adapter(adapter)?;
-        self.check_devty(ty)?;
+        if_error!(self.check_adapter(adapter));
+        if_error!(self.check_devty(ty));
 
         // We support hardware accel with all valid formats.
         if is_display_mode_format(adapter_fmt) {
@@ -203,8 +202,8 @@ impl Context {
         rt: ResourceType,
         check_fmt: D3DFORMAT,
     ) -> Error {
-        let adapter = self.check_adapter(adapter)?;
-        self.check_devty(ty)?;
+        let adapter = if_error!(self.check_adapter(adapter));
+        if_error!(self.check_devty(ty));
 
         if adapter.is_format_supported(check_fmt, rt, usage) {
             Error::Success
@@ -223,8 +222,8 @@ impl Context {
         mst: D3DMULTISAMPLE_TYPE,
         quality: *mut u32,
     ) -> Error {
-        let adapter = self.check_adapter(adapter)?;
-        self.check_devty(ty)?;
+        let adapter = if_error!(self.check_adapter(adapter));
+        if_error!(self.check_devty(ty));
 
         let quality = check_mut_ref(quality);
 
@@ -252,8 +251,8 @@ impl Context {
         _rt_fmt: D3DFORMAT,
         ds_fmt: D3DFORMAT,
     ) -> Error {
-        self.check_adapter(adapter)?;
-        self.check_devty(ty)?;
+        if_error!(self.check_adapter(adapter));
+        if_error!(self.check_devty(ty));
 
         // We don't check the adapter fmt / render target fmt since on modern GPUs
         // basically any valid combination of formats is allowed.
@@ -275,8 +274,8 @@ impl Context {
         _src_fmt: D3DFORMAT,
         _tgt_fmt: D3DFORMAT,
     ) -> Error {
-        self.check_adapter(adapter)?;
-        self.check_devty(ty)?;
+        if_error!(self.check_adapter(adapter));
+        if_error!(self.check_devty(ty));
 
         // For most types we can simply convert them to the right format on-the-fly.
         // TODO: we should at least validate the formats to make sure they are valid for back buffers.
@@ -286,9 +285,9 @@ impl Context {
 
     /// Returns a structure describing the features and limits of an adapter.
     fn get_device_caps(&self, adapter: u32, ty: D3DDEVTYPE, caps: *mut D3DCAPS9) -> Error {
-        let adapter = self.check_adapter(adapter)?;
-        self.check_devty(ty)?;
-        let caps = check_mut_ref(caps)?;
+        let adapter = if_error!(self.check_adapter(adapter));
+        if_error!(self.check_devty(ty));
+        let caps = if_error!(check_mut_ref(caps));
 
         *caps = adapter.caps();
 
@@ -312,8 +311,8 @@ impl Context {
         pp: *mut D3DPRESENT_PARAMETERS,
         device: *mut *mut Device,
     ) -> Error {
-        self.check_devty(ty)?;
-        let ret = check_mut_ref(device)?;
+        if_error!(self.check_devty(ty));
+        let ret = if_error!(check_mut_ref(device));
 
         // TODO: support using multiple GPUs
         if flags & D3DCREATE_ADAPTERGROUP_DEVICE != 0 {
@@ -349,16 +348,16 @@ impl Context {
 
         // This structure describes some settings for the back buffer(s).
         // Since we don't support multiple adapters, we only use the first param in the array.
-        let pp = check_mut_ref(pp)?;
+        let pp = if_error!(check_mut_ref(pp));
 
         // Create the actual device.
-        *ret = crate::Device::new(
+        *ret = if_error!(crate::Device::new(
             self,
-            self.check_adapter(adapter)?,
+            if_error!(self.check_adapter(adapter)),
             cp,
             pp,
             self.factory.clone(),
-        )?
+        ))
         .into();
 
         Error::Success

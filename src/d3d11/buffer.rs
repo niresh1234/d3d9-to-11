@@ -5,9 +5,9 @@ use winapi::um::d3d11::*;
 use comptr::ComPtr;
 
 use crate::core::*;
-use crate::Result;
 
 use super::util::d3d_usage_to_d3d11;
+use crate::Error;
 
 /// Wrapper for a vertex/index buffer.
 #[derive(Clone)]
@@ -23,7 +23,7 @@ impl Buffer {
         usage: UsageFlags,
         pool: MemoryPool,
         bind_flags: u32,
-    ) -> Result<Self> {
+    ) -> Result<Self, Error> {
         let (usage, _, cpu_flags) = d3d_usage_to_d3d11(usage, pool)?;
 
         let desc = D3D11_BUFFER_DESC {
@@ -39,7 +39,7 @@ impl Buffer {
             let mut ptr = ptr::null_mut();
 
             let result = device.CreateBuffer(&desc, ptr::null(), &mut ptr);
-            check_hresult(result, "Failed to create buffer")?;
+            if_not_success_err!(check_hresult(result, "Failed to create buffer"));
 
             ComPtr::new(ptr)
         };

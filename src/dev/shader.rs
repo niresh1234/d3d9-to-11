@@ -7,7 +7,7 @@ use winapi::um::unknwnbase::{IUnknown, IUnknownVtbl};
 use com_impl::{implementation, interface, ComInterface};
 use comptr::ComPtr;
 
-use crate::{core::*, Error, Result};
+use crate::{core::*, Error};
 
 use super::Device;
 
@@ -41,7 +41,7 @@ macro_rules! impl_shader {
         impl $name {
             /// Retrieves the device which created this shader.
             fn get_device(&self, ret: *mut *mut Device) -> Error {
-                let ret = check_mut_ref(ret)?;
+                let ret = if_error!(check_mut_ref(ret));
                 *ret = com_ref(self.device);
                 Error::Success
             }
@@ -49,12 +49,12 @@ macro_rules! impl_shader {
             /// Retrieve the shader's byte code.
             fn get_function(&self, ret: *mut u32, num: *mut u32) -> Error {
                 if ret.is_null() {
-                    let num = check_mut_ref(num)?;
+                    let num = if_error!(check_mut_ref(num));
 
                     *num = self.code.len() as u32;
                 } else {
                     let code = unsafe {
-                        let ret = check_mut_ref(ret)?;
+                        let ret = if_error!(check_mut_ref(ret));
                         slice::from_raw_parts_mut(ret, self.code.len())
                     };
 
@@ -76,7 +76,7 @@ pub struct VertexShader {
 
 impl VertexShader {
     /// Create a new vertex shader.
-    pub fn new(device: &Device, func: *const u32) -> Result<ComPtr<Self>> {
+    pub fn new(device: &Device, func: *const u32) -> Result<ComPtr<Self>, Error> {
         let code = tokens_to_box(func);
 
         let vs = Self {
@@ -104,7 +104,7 @@ pub struct PixelShader {
 
 impl PixelShader {
     /// Create a new pixel shader.
-    pub fn new(device: &Device, func: *const u32) -> Result<ComPtr<Self>> {
+    pub fn new(device: &Device, func: *const u32) -> Result<ComPtr<Self>, Error> {
         let code = tokens_to_box(func);
 
         let ps = Self {
@@ -181,7 +181,7 @@ impl_iunknown!(struct VertexDeclaration: IUnknown, IDirect3DVertexDeclaration9);
 impl VertexDeclaration {
     /// Retrieves the device which owns this vertex declaration.
     fn get_device(&self, ret: *mut *mut Device) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
         *ret = com_ref(self.device);
         Error::Success
     }
@@ -189,12 +189,12 @@ impl VertexDeclaration {
     /// Retrieves the elements which make up this declaration.
     fn get_declaration(&self, elems: *mut D3DVERTEXELEMENT9, num: *mut u32) -> Error {
         if elems.is_null() {
-            let num = check_mut_ref(num)?;
+            let num = if_error!(check_mut_ref(num));
 
             *num = self.elems.len() as u32;
         } else {
             let elems = unsafe {
-                let elems = check_mut_ref(elems)?;
+                let elems = if_error!(check_mut_ref(elems));
                 slice::from_raw_parts_mut(elems, self.elems.len())
             };
 

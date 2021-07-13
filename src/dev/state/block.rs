@@ -7,7 +7,7 @@ use com_impl::{implementation, interface, ComInterface};
 use comptr::ComPtr;
 
 use crate::dev::Device;
-use crate::{core::*, Error, Result};
+use crate::{core::*, Error};
 
 /// Object which records some portions of a device's state.
 #[interface(IDirect3DStateBlock9)]
@@ -18,7 +18,7 @@ pub struct StateBlock {
 
 impl StateBlock {
     /// Creates a new empty state block.
-    pub fn new(device: &mut Device, _ty: D3DSTATEBLOCKTYPE) -> Result<ComPtr<Self>> {
+    pub fn new(device: &mut Device, _ty: D3DSTATEBLOCKTYPE) -> Result<ComPtr<Self>, Error> {
         let _sb = Self {
             __vtable: Box::new(Self::create_vtable()),
             refs: AtomicU32::new(1),
@@ -35,7 +35,7 @@ impl_iunknown!(struct StateBlock: IUnknown, IDirect3DStateBlock9);
 impl StateBlock {
     /// Retrieves the device which owns this tate block.
     fn get_device(&self, ret: *mut *mut Device) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
         *ret = com_ref(self.device);
         Error::Success
     }

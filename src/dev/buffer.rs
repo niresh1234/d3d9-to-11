@@ -62,7 +62,7 @@ impl ComInterface<IDirect3DResource9Vtbl> for VertexBuffer {
 #[implementation(IDirect3DVertexBuffer9)]
 impl VertexBuffer {
     fn get_desc(&self, ret: *mut D3DVERTEXBUFFER_DESC) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
 
         let desc = self.buffer.desc();
 
@@ -77,11 +77,11 @@ impl VertexBuffer {
     }
 
     fn lock(&self, offset: u32, _size: u32, ret: *mut *mut u8, flags: LockFlags) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
 
         let resource = self.buffer.as_resource();
         let ctx = self.device_context();
-        let mapped = ctx.map(resource, 0, flags, self.usage())?;
+        let mapped = if_error!(ctx.map(resource, 0, flags, self.usage()));
 
         // TODO: allow buffers to be mapped multiple times.
         info!("Mapped vertex buffer");
@@ -151,7 +151,7 @@ impl ComInterface<IDirect3DResource9Vtbl> for IndexBuffer {
 #[implementation(IDirect3DIndexBuffer9)]
 impl IndexBuffer {
     fn get_desc(&self, ret: *mut D3DINDEXBUFFER_DESC) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
 
         let desc = self.buffer.desc();
 
@@ -165,11 +165,11 @@ impl IndexBuffer {
     }
 
     fn lock(&self, offset: u32, _size: u32, ret: *mut *mut u8, flags: LockFlags) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
 
         let resource = self.buffer.as_resource();
         let ctx = self.device_context();
-        let mapped = ctx.map(resource, 0, flags, self.usage())?;
+        let mapped = if_error!(ctx.map(resource, 0, flags, self.usage()));
 
         // TODO: allow buffers to be mapped multiple times.
         info!("Mapped index buffer");

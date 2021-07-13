@@ -116,7 +116,7 @@ impl Surface {
 
     /// Retrieves a description of this surface.
     pub fn get_desc(&self, ret: *mut D3DSURFACE_DESC) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
 
         let desc = self.texture.desc();
 
@@ -139,11 +139,9 @@ impl Surface {
     // -- Memory mapping functions --
 
     fn lock_rect(&mut self, ret: *mut D3DLOCKED_RECT, _r: *const RECT, flags: LockFlags) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
         let (res, subres) = self.subresource();
-        *ret = self
-            .device_context()
-            .map(res, subres, flags, self.usage())?;
+        *ret = if_error!(self.device_context().map(res, subres, flags, self.usage()));
         Error::Success
     }
 

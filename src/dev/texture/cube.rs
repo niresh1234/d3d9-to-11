@@ -67,7 +67,10 @@ impl CubeTexture {
         let surface = {
             let mut ptr = ptr::null_mut();
             // We can use any face, since they are all equal.
-            self.get_cube_map_surface(0, level, &mut ptr)?;
+            match self.get_cube_map_surface(0, level, &mut ptr) {
+                Error::Success => (),
+                err => return err,
+            }
             ComPtr::new(ptr)
         };
 
@@ -76,7 +79,7 @@ impl CubeTexture {
 
     /// Retrieves a face of this cube map.
     fn get_cube_map_surface(&self, face: u32, level: u32, ret: *mut *mut Surface) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
         let levels = self.level_count();
 
         if face >= 6 {
@@ -108,14 +111,14 @@ impl CubeTexture {
         _r: *const RECT,
         flags: LockFlags,
     ) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
 
         let resource = self.texture.as_resource();
         let levels = self.level_count();
         let subres = self.texture.calc_subresource(level, face, levels);
         let ctx = self.device_context();
 
-        *ret = ctx.map(resource, subres, flags, self.usage())?;
+        *ret = if_error!(ctx.map(resource, subres, flags, self.usage()));
 
         Error::Success
     }
@@ -133,7 +136,7 @@ impl CubeTexture {
     }
 
     fn add_dirty_rect(&mut self, _face: u32, r: *const RECT) -> Error {
-        let _r = check_ref(r)?;
+        let _r = if_error!(check_ref(r));
         warn!("AddDirtyRect is not implemented");
         Error::Success
     }

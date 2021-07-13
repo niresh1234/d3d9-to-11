@@ -20,7 +20,8 @@ pub use self::context::Context;
 
 use comptr::ComPtr;
 
-use crate::{Error, Result};
+use crate::Error;
+use core::result::Result;
 
 /// Checks to make sure a given parameter passed in as a pointer is not null.
 pub fn check_not_null<T>(ptr: *mut T) -> Error {
@@ -37,19 +38,19 @@ pub fn check_hresult(hr: i32, msg: &'static str) -> Error {
     if hr != 0 {
         let err = std::io::Error::from_raw_os_error(hr);
         error!("{}: {}", msg, err);
-        crate::Error::DriverInternalError
+        Error::DriverInternalError
     } else {
-        crate::Error::Success
+        Error::Success
     }
 }
 
 /// Tries to convert pointer parameter into a reference.
-pub fn check_ref<'a, T>(ptr: *const T) -> Result<&'a T> {
+pub fn check_ref<'a, T>(ptr: *const T) -> Result<&'a T, Error> {
     unsafe { ptr.as_ref().ok_or(Error::InvalidCall) }
 }
 
 /// Tries to convert a pointer parameter into a mutable reference.
-pub fn check_mut_ref<'a, T>(ptr: *mut T) -> Result<&'a mut T> {
+pub fn check_mut_ref<'a, T>(ptr: *mut T) -> Result<&'a mut T, Error> {
     unsafe { ptr.as_mut().ok_or(Error::InvalidCall) }
 }
 

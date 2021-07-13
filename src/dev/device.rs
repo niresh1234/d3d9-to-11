@@ -15,7 +15,7 @@ use super::*;
 
 use crate::core::*;
 use crate::d3d11;
-use crate::{Error, Result};
+use crate::Error;
 
 /// Structure representing a logical graphics device.
 #[interface(IDirect3DDevice9)]
@@ -60,7 +60,7 @@ impl Device {
         cp: D3DDEVICE_CREATION_PARAMETERS,
         pp: &mut D3DPRESENT_PARAMETERS,
         factory: ComPtr<IDXGIFactory>,
-    ) -> Result<ComPtr<Device>> {
+    ) -> Result<ComPtr<Device>, Error> {
         let device = d3d11::Device::new(adapter.device());
         let ctx = d3d11::DeviceContext::new(&device);
 
@@ -148,12 +148,16 @@ impl Device {
     }
 
     /// Creates the default swap chain for this device.
-    fn create_default_swap_chain(&mut self, pp: &mut D3DPRESENT_PARAMETERS) -> Result<()> {
+    fn create_default_swap_chain(&mut self, pp: &mut D3DPRESENT_PARAMETERS) -> Result<(), Error> {
         // Note: this function is usually used for non-implicit swap chains,
         // but it's a good idea to reuse it.
         let swap_chain = {
             let mut ret = ptr::null_mut();
-            self.create_additional_swap_chain(pp, &mut ret)?;
+            match self.create_additional_swap_chain(pp, &mut ret) {
+                Error::Success => (),
+                err => return Err(err),
+            };
+
             ComPtr::new(ret)
         };
 
@@ -171,12 +175,15 @@ impl Device {
     }
 
     /// Tries to retrieve a swap chain based on the index.
-    fn check_swap_chain(&self, sc: u32) -> Result<&ComPtr<SwapChain>> {
+    fn check_swap_chain(&self, sc: u32) -> Result<&ComPtr<SwapChain>, Error> {
         self.swap_chains.get(sc as usize).ok_or(Error::InvalidCall)
     }
 
     /// Helper function for creating render targets.
-    fn create_render_target_helper(&self, texture: d3d11::Texture2D) -> Result<ComPtr<Surface>> {
+    fn create_render_target_helper(
+        &self,
+        texture: d3d11::Texture2D,
+    ) -> Result<ComPtr<Surface>, Error> {
         // Create a render target view into the texture.
         let rt_view = texture.create_rt_view(&self.device)?;
 
@@ -193,7 +200,7 @@ impl Device {
     }
 
     /// Creates the default render target for this device.
-    fn create_default_render_target(&mut self) -> Result<()> {
+    fn create_default_render_target(&mut self) -> Result<(), Error> {
         let sc = &self.swap_chains[0];
         let bbuf = sc.buffer(0)?;
 
@@ -205,7 +212,7 @@ impl Device {
     }
 
     /// Retrieves a handle to a render target.
-    fn check_render_target(&self, i: u32) -> Result<&ComPtr<Surface>> {
+    fn check_render_target(&self, i: u32) -> Result<&ComPtr<Surface>, Error> {
         if let Some(rt) = self.render_targets.get(i as usize) {
             if let Some(rt) = rt {
                 Ok(rt)
@@ -291,21 +298,21 @@ impl Device {
 
     /// Returns a reference to the parent interface.
     fn get_direct_3_d(&self, ptr: *mut *mut Context) -> Error {
-        let ptr = check_mut_ref(ptr)?;
+        let ptr = if_error!(check_mut_ref(ptr));
         *ptr = com_ref(self.parent);
         Error::Success
     }
 
     /// Returns the caps of this device.
     fn get_device_caps(&self, caps: *mut D3DCAPS9) -> Error {
-        let caps = check_mut_ref(caps)?;
+        let caps = if_error!(check_mut_ref(caps));
         *caps = self.adapter().caps();
         Error::Success
     }
 
     /// Returns the creation parameters of this device.
     fn get_creation_parameters(&self, params: *mut D3DDEVICE_CREATION_PARAMETERS) -> Error {
-        let params = check_mut_ref(params)?;
+        let params = if_error!(check_mut_ref(params));
         *params = self.creation_params;
         Error::Success
     }
@@ -319,23 +326,21 @@ impl Device {
         ret: *mut *mut SwapChain,
     ) -> Error {
         let factory = self.factory.as_mut();
-        let pp = check_mut_ref(pp)?;
+        let pp = if_error!(check_mut_ref(pp));
         let window = self.window;
 
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
 
-        *ret = SwapChain::new(self, &self.device, factory, pp, window)?.into();
-
+        *ret = if_error!(SwapChain::new(self, &self.device, factory, pp, window)).into();
         Error::Success
     }
 
     /// Returns an implicit swap chain.
     fn get_swap_chain(&self, sc: u32, ret: *mut *mut SwapChain) -> Error {
-        let sc = self.check_swap_chain(sc)?;
-        let ret = check_mut_ref(ret)?;
+        let sc = if_error!(self.check_swap_chain(sc));
+        let ret = if_error!(check_mut_ref(ret));
 
         *ret = sc.clone().into();
-
         Error::Success
     }
 
@@ -349,13 +354,16 @@ impl Device {
 
     fn present(&self, src: usize, dest: usize, wnd: HWND, dirty: usize) -> Error {
         for sc in &self.swap_chains {
-            sc.present(src, dest, wnd, dirty, 0)?;
+            match sc.present(src, dest, wnd, dirty, 0) {
+                Error::Success => (),
+                err => return err,
+            }
         }
         Error::Success
     }
 
     fn get_front_buffer_data(&self, sc: u32, fb: *mut Surface) -> Error {
-        self.check_swap_chain(sc)?.get_front_buffer_data(fb)
+        if_error!(self.check_swap_chain(sc)).get_front_buffer_data(fb)
     }
 
     fn get_back_buffer(
@@ -365,15 +373,15 @@ impl Device {
         ty: D3DBACKBUFFER_TYPE,
         ret: *mut *mut Surface,
     ) -> Error {
-        self.check_swap_chain(sc)?.get_back_buffer(bi, ty, ret)
+        if_error!(self.check_swap_chain(sc)).get_back_buffer(bi, ty, ret)
     }
 
     fn get_raster_status(&self, sc: u32, rs: *mut D3DRASTER_STATUS) -> Error {
-        self.check_swap_chain(sc)?.get_raster_status(rs)
+        if_error!(self.check_swap_chain(sc)).get_raster_status(rs)
     }
 
     fn get_display_mode(&self, sc: u32, dm: *mut D3DDISPLAYMODE) -> Error {
-        self.check_swap_chain(sc)?.get_display_mode(dm)
+        if_error!(self.check_swap_chain(sc)).get_display_mode(dm)
     }
 
     // -- Gamma control functions --
@@ -406,7 +414,7 @@ impl Device {
         ret: *mut *mut Surface,
         shared_handle: usize,
     ) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
 
         if lockable != 0 {
             error!("Lockable render targets are not supported");
@@ -418,9 +426,15 @@ impl Device {
         }
 
         // First we need to create a texture we will render to.
-        let texture = d3d11::Texture2D::new_rt(&self.device, (width, height), fmt, ms_ty, ms_qlt)?;
+        let texture = if_error!(d3d11::Texture2D::new_rt(
+            &self.device,
+            (width, height),
+            fmt,
+            ms_ty,
+            ms_qlt
+        ));
 
-        *ret = self.create_render_target_helper(texture)?.into();
+        *ret = if_error!(self.create_render_target_helper(texture)).into();
 
         Error::Success
     }
@@ -459,8 +473,8 @@ impl Device {
 
     /// Retrieves a reference to a bound render target.
     fn get_render_target(&self, i: u32, ret: *mut *mut Surface) -> Error {
-        let rt = self.check_render_target(i)?;
-        let ret = check_mut_ref(ret)?;
+        let rt = if_error!(self.check_render_target(i));
+        let ret = if_error!(check_mut_ref(ret));
 
         *ret = rt.clone().into();
 
@@ -485,12 +499,12 @@ impl Device {
         discard: u32,
         ret: *mut *mut Surface,
         shared_handle: usize,
-    ) -> Error {
+    ) -> Result<(), Error> {
         let ret = check_mut_ref(ret)?;
 
         if shared_handle != 0 {
             error!("Shared resources are not supported");
-            return Error::InvalidCall;
+            return Err(Error::InvalidCall);
         }
 
         if discard != 0 {
@@ -509,9 +523,10 @@ impl Device {
             UsageFlags::DEPTH_STENCIL,
             MemoryPool::Default,
             data,
-        ).into();
+        )
+        .into();
 
-        Error::Success
+        Ok(())
     }
 
     /// Sets the current depth / stencil buffer.
@@ -531,7 +546,7 @@ impl Device {
 
     /// Retrieves the bound depth / stencil buffer.
     fn get_depth_stencil_surface(&self, ret: *mut *mut Surface) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
 
         *ret = self
             .depth_stencil
@@ -552,14 +567,14 @@ impl Device {
         ret: *mut *mut Surface,
         shared_handle: usize,
     ) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
 
         if shared_handle != 0 {
             error!("Shared resources are not supported");
             return Error::InvalidCall;
         }
 
-        let texture = d3d11::Texture2D::new(
+        let texture = if_error!(d3d11::Texture2D::new(
             &self.device,
             (width, height),
             1,
@@ -568,7 +583,7 @@ impl Device {
             // We ignore the pool, we need this surface to always be CPU-readable
             // (i.e. D3D11_USAGE_STAGING), since that's its intended use.
             MemoryPool::SystemMem,
-        )?;
+        ));
 
         let data = SurfaceData::None;
 
@@ -588,9 +603,9 @@ impl Device {
         dest: *mut Surface,
         dp: *const POINT,
     ) -> Error {
-        let src = check_mut_ref(src)?;
-        let dest = check_mut_ref(dest)?;
-        let dp = check_ref(dp)?;
+        let src = if_error!(check_mut_ref(src));
+        let dest = if_error!(check_mut_ref(dest));
+        let dp = if_error!(check_ref(dp));
 
         if src.pool() != MemoryPool::SystemMem || dest.pool() != MemoryPool::Default {
             return Error::InvalidCall;
@@ -650,7 +665,7 @@ impl Device {
         ret: *mut *mut Texture,
         shared_handle: usize,
     ) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
 
         if shared_handle != 0 {
             error!("Shared resources are not supported");
@@ -665,8 +680,14 @@ impl Device {
             warn!("Autom mip-map generation not yet supported");
         }
 
-        let texture =
-            d3d11::Texture2D::new(&self.device, (width, height), levels, usage, fmt, pool)?;
+        let texture = if_error!(d3d11::Texture2D::new(
+            &self.device,
+            (width, height),
+            levels,
+            usage,
+            fmt,
+            pool
+        ));
 
         *ret = Texture::new(self, pool, texture, levels, usage).into();
 
@@ -684,7 +705,7 @@ impl Device {
         ret: *mut *mut CubeTexture,
         shared_handle: usize,
     ) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
 
         if shared_handle != 0 {
             error!("Shared resources are not supported");
@@ -699,8 +720,14 @@ impl Device {
             warn!("Autom mip-map generation not yet supported");
         }
 
-        let texture =
-            d3d11::Texture2D::new_cube_texture(&self.device, edge_len, levels, usage, fmt, pool)?;
+        let texture = if_error!(d3d11::Texture2D::new_cube_texture(
+            &self.device,
+            edge_len,
+            levels,
+            usage,
+            fmt,
+            pool
+        ));
 
         *ret = CubeTexture::new(self, texture, levels, usage, pool).into();
 
@@ -741,9 +768,9 @@ impl Device {
 
     /// Creates a new state block which can capture commands.
     fn create_state_block(&mut self, ty: D3DSTATEBLOCKTYPE, ret: *mut *mut StateBlock) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
 
-        *ret = StateBlock::new(self, ty)?.into();
+        *ret = if_error!(StateBlock::new(self, ty)).into();
 
         Error::Success
     }
@@ -755,14 +782,14 @@ impl Device {
 
     /// Ends recording a state block, and returns a pointer to it.
     fn end_state_block(&mut self, ret: *mut *mut StateBlock) -> Error {
-        let _ret = check_mut_ref(ret)?;
+        let _ret = if_error!(check_mut_ref(ret));
         unimplemented!()
     }
 
     /// Validates the current state of the device, or the state of the
     /// currently recording state block, if any.
     fn validate_device(&self, passes: *mut u32) -> Error {
-        let passes = check_mut_ref(passes)?;
+        let passes = if_error!(check_mut_ref(passes));
 
         // We do not emulate anything using multiple passes.
         *passes = 1;
@@ -795,7 +822,7 @@ impl Device {
 
     /// Retrieves the value of the current render state.
     fn get_render_state(&self, state: D3DRENDERSTATETYPE, ret: *mut u32) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
 
         *ret = self.istate.get_render_state(state);
 
@@ -810,7 +837,7 @@ impl Device {
         elems: *const D3DVERTEXELEMENT9,
         ret: *mut *mut VertexDeclaration,
     ) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
 
         *ret = VertexDeclaration::new(self, elems).into();
 
@@ -825,15 +852,15 @@ impl Device {
 
     /// Gets the current vertex declaration.
     fn get_vertex_declaration(&self, ret: *mut *const VertexDeclaration) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
         *ret = com_ref(self.istate.get_vertex_declaration());
         Error::Success
     }
 
     /// Creates a vertex shader from its bytecode.
     fn create_vertex_shader(&self, func: *const u32, ret: *mut *mut VertexShader) -> Error {
-        let ret = check_mut_ref(ret)?;
-        *ret = VertexShader::new(self, func)?.into();
+        let ret = if_error!(check_mut_ref(ret));
+        *ret = if_error!(VertexShader::new(self, func)).into();
         Error::Success
     }
 
@@ -845,7 +872,7 @@ impl Device {
 
     /// Retrieves the current vertex shader;
     fn get_vertex_shader(&self, ret: *mut *const VertexShader) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
         *ret = self.istate.get_vertex_shader();
         Error::Success
     }
@@ -879,14 +906,20 @@ impl Device {
         ret: *mut *mut VertexBuffer,
         shared_handle: usize,
     ) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
 
         if shared_handle != 0 {
             error!("Shared resources are not supported");
             return Error::InvalidCall;
         }
 
-        let buffer = d3d11::Buffer::new(&self.device, len, usage, pool, D3D11_BIND_VERTEX_BUFFER)?;
+        let buffer = if_error!(d3d11::Buffer::new(
+            &self.device,
+            len,
+            usage,
+            pool,
+            D3D11_BIND_VERTEX_BUFFER
+        ));
 
         *ret = VertexBuffer::new(self, pool, fvf, buffer, usage).into();
 
@@ -903,14 +936,20 @@ impl Device {
         ret: *mut *mut IndexBuffer,
         shared_handle: usize,
     ) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
 
         if shared_handle != 0 {
             error!("Shared resources are not supported");
             return Error::InvalidCall;
         }
 
-        let buffer = d3d11::Buffer::new(&self.device, len, usage, pool, D3D11_BIND_INDEX_BUFFER)?;
+        let buffer = if_error!(d3d11::Buffer::new(
+            &self.device,
+            len,
+            usage,
+            pool,
+            D3D11_BIND_INDEX_BUFFER
+        ));
 
         *ret = IndexBuffer::new(self, fmt, pool, buffer, usage).into();
 
@@ -942,7 +981,7 @@ impl Device {
 
     /// Gets the state of a texture sampler.
     fn get_sampler_state(&self, sampler: u32, ty: D3DSAMPLERSTATETYPE, ret: *mut u32) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
 
         *ret = self.istate.get_sampler_state(sampler, ty);
 
@@ -951,8 +990,8 @@ impl Device {
 
     /// Create a pixel shader from its bytecode.
     fn create_pixel_shader(&self, func: *const u32, ret: *mut *mut PixelShader) -> Error {
-        let ret = check_mut_ref(ret)?;
-        *ret = PixelShader::new(self, func)?.into();
+        let ret = if_error!(check_mut_ref(ret));
+        *ret = if_error!(PixelShader::new(self, func)).into();
         Error::Success
     }
 
@@ -964,7 +1003,7 @@ impl Device {
 
     /// Gets the current pixel shader.
     fn get_pixel_shader(&self, ret: *mut *const PixelShader) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
         *ret = self.istate.get_pixel_shader();
         Error::Success
     }
@@ -996,7 +1035,7 @@ impl Device {
 
     /// Retrieves the bound texture of a certain stage.
     fn get_texture(&self, stage: u32, ret: *mut *mut BaseTexture) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
         *ret = self.istate.get_texture(stage);
         Error::Success
     }
@@ -1019,7 +1058,7 @@ impl Device {
         ty: D3DTEXTURESTAGESTATETYPE,
         ret: *mut u32,
     ) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
         *ret = self.istate.get_texture_stage_state(stage, ty);
         Error::Success
     }
@@ -1028,14 +1067,14 @@ impl Device {
 
     /// Sets a device's viewport.
     fn set_viewport(&mut self, vp: *const D3DVIEWPORT9) -> Error {
-        let vp = check_ref(vp)?;
+        let vp = if_error!(check_ref(vp));
         self.istate.set_viewport(vp);
         Error::Success
     }
 
     /// Retrieves the currently set viewport.
     fn get_viewport(&self, ret: *mut D3DVIEWPORT9) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
         *ret = self.istate.get_viewport();
         Error::Success
     }
@@ -1057,14 +1096,14 @@ impl Device {
 
     /// Sets the current material.
     fn set_material(&mut self, mat: *const D3DMATERIAL9) -> Error {
-        let mat = check_ref(mat)?;
+        let mat = if_error!(check_ref(mat));
         self.istate.set_material(mat);
         Error::Success
     }
 
     /// Retrieves the currently set material.
     fn get_material(&self, ret: *mut D3DMATERIAL9) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
         *ret = self.istate.get_material();
         Error::Success
     }
@@ -1075,7 +1114,7 @@ impl Device {
             || (D3DTS_TEXTURE0 <= ty && ty <= D3DTS_TEXTURE7)
             || (256 <= ty && ty <= 512)
         {
-            let mat = check_ref(mat)?;
+            let mat = if_error!(check_ref(mat));
             self.istate
                 .set_transform(ty, unsafe { mem::transmute(*mat) });
             Error::Success
@@ -1090,7 +1129,7 @@ impl Device {
             || (D3DTS_TEXTURE0 <= ty && ty <= D3DTS_TEXTURE7)
             || (256 <= ty && ty <= 512)
         {
-            let ret = check_mut_ref(ret)?;
+            let ret = if_error!(check_mut_ref(ret));
             *ret = unsafe { mem::transmute(self.istate.get_transform(ty)) };
             Error::Success
         } else {

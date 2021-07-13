@@ -1,9 +1,5 @@
 //! Error type definition.
 
-use std::{ops, result};
-
-pub type Result<T> = result::Result<T, Error>;
-
 const D3D9_FACILITY: u32 = 0x876;
 
 const fn make_hresult(sev: u32, fac: u32, code: u32) -> u32 {
@@ -70,24 +66,4 @@ pub enum Error {
     PresentModeChanged = make_status(2167),
     PresentOccluded = make_status(2168),
     PresentStatisticsDisjoint = make_status(2180),
-}
-
-impl ops::Try for Error {
-    type Ok = ();
-    type Error = Error;
-
-    fn into_result(self) -> Result<()> {
-        match self {
-            Error::Success => Ok(()),
-            _ => Err(self),
-        }
-    }
-
-    fn from_ok(_: ()) -> Self {
-        Error::Success
-    }
-
-    fn from_error(err: Self) -> Self {
-        err
-    }
 }

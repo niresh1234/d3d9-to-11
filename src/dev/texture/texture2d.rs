@@ -65,7 +65,10 @@ impl Texture {
     fn get_level_desc(&self, level: u32, desc: *mut D3DSURFACE_DESC) -> Error {
         let surface = {
             let mut ptr = ptr::null_mut();
-            self.get_surface_level(level, &mut ptr)?;
+            match self.get_surface_level(level, &mut ptr) {
+                Error::Success => (),
+                err => return err,
+            }
             ComPtr::new(ptr)
         };
 
@@ -74,7 +77,7 @@ impl Texture {
 
     /// Retrieves a surface representing a mip level of this texture.
     fn get_surface_level(&self, level: u32, ret: *mut *mut Surface) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
 
         if level >= self.level_count() {
             return Error::InvalidCall;
@@ -100,12 +103,12 @@ impl Texture {
         _r: *const RECT,
         flags: LockFlags,
     ) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
 
         let resource = self.texture.as_resource();
         let ctx = self.device_context();
 
-        *ret = ctx.map(resource, level, flags, self.usage())?;
+        *ret = if_error!(ctx.map(resource, level, flags, self.usage()));
 
         Error::Success
     }
@@ -121,7 +124,7 @@ impl Texture {
     }
 
     fn add_dirty_rect(&mut self, r: *const RECT) -> Error {
-        let _r = check_ref(r)?;
+        let _r = if_error!(check_ref(r));
         warn!("AddDirtyRect is not implemented");
         Error::Success
     }

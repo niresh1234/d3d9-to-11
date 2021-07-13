@@ -6,7 +6,7 @@ use winapi::um::d3d11::*;
 use comptr::ComPtr;
 
 use crate::core::*;
-use crate::{Error, Result};
+use crate::Error;
 
 /// Wrapper for a D3D11 immediate context.
 #[derive(Clone)]
@@ -33,7 +33,7 @@ impl DeviceContext {
         subres: u32,
         flags: LockFlags,
         usage: UsageFlags,
-    ) -> Result<D3DLOCKED_RECT> {
+    ) -> Result<D3DLOCKED_RECT, Error> {
         let map_flags = if usage.intersects(UsageFlags::WRITE_ONLY) {
             // NOOVERWRITE must come first, since in D3D11 it's a superset of discard.
             if flags.intersects(LockFlags::NO_OVERWRITE) {
@@ -76,6 +76,7 @@ impl DeviceContext {
             match result {
                 0 => Ok(buf),
                 winerror::DXGI_ERROR_WAS_STILL_DRAWING => Err(Error::WasStillDrawing),
+                // Should never return Error::Success below
                 hr => Err(check_hresult(hr, "Failed to map resource")),
             }
         }?;

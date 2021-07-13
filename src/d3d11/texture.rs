@@ -6,9 +6,9 @@ use winapi::um::d3d11::*;
 use comptr::ComPtr;
 
 use crate::core::{fmt::d3d_format_to_dxgi, msample::d3d9_to_dxgi_samples, *};
-use crate::Result;
 
 use super::util::d3d_usage_to_d3d11;
+use crate::Error;
 
 /// Wrapper for a D3D11 2D texture.
 #[derive(Clone)]
@@ -25,7 +25,7 @@ impl Texture2D {
         uflags: UsageFlags,
         fmt: D3DFORMAT,
         pool: MemoryPool,
-    ) -> Result<Self> {
+    ) -> Result<Self, Error> {
         let (usage, bind_flags, cpu_flags) = d3d_usage_to_d3d11(uflags, pool)?;
 
         let fmt = d3d_format_to_dxgi(fmt);
@@ -47,7 +47,7 @@ impl Texture2D {
             let mut ptr = ptr::null_mut();
 
             let result = device.CreateTexture2D(&desc, ptr::null(), &mut ptr);
-            check_hresult(result, "Failed to create 2D texture")?;
+            if_not_success_err!(check_hresult(result, "Failed to create 2D texture"));
 
             ComPtr::new(ptr)
         };
@@ -63,7 +63,7 @@ impl Texture2D {
         uflags: UsageFlags,
         fmt: D3DFORMAT,
         pool: MemoryPool,
-    ) -> Result<Self> {
+    ) -> Result<Self, Error> {
         let (usage, bind_flags, cpu_flags) = d3d_usage_to_d3d11(uflags, pool)?;
         let fmt = d3d_format_to_dxgi(fmt);
 
@@ -84,7 +84,7 @@ impl Texture2D {
             let mut ptr = ptr::null_mut();
 
             let result = device.CreateTexture2D(&desc, ptr::null(), &mut ptr);
-            check_hresult(result, "Failed to create cube texture")?;
+            if_not_success_err!(check_hresult(result, "Failed to create cube texture"));
 
             ComPtr::new(ptr)
         };
@@ -99,7 +99,7 @@ impl Texture2D {
         fmt: D3DFORMAT,
         ms_ty: D3DMULTISAMPLE_TYPE,
         ms_qlt: u32,
-    ) -> Result<Self> {
+    ) -> Result<Self, Error> {
         let fmt = d3d_format_to_dxgi(fmt);
 
         let desc = D3D11_TEXTURE2D_DESC {
@@ -119,7 +119,10 @@ impl Texture2D {
             let mut ptr = ptr::null_mut();
 
             let result = device.CreateTexture2D(&desc, ptr::null(), &mut ptr);
-            check_hresult(result, "Failed to create render target texture")?;
+            if_not_success_err!(check_hresult(
+                result,
+                "Failed to create render target texture"
+            ));
 
             ComPtr::new(ptr)
         };
@@ -128,14 +131,17 @@ impl Texture2D {
     }
 
     /// Creates a render target view from this texture.
-    pub fn create_rt_view(&self, device: &ID3D11Device) -> Result<ComPtr<ID3D11RenderTargetView>> {
+    pub fn create_rt_view(
+        &self,
+        device: &ID3D11Device,
+    ) -> Result<ComPtr<ID3D11RenderTargetView>, Error> {
         let resource = self.as_resource();
 
         let view = unsafe {
             let mut ptr = ptr::null_mut();
 
             let result = device.CreateRenderTargetView(resource, ptr::null(), &mut ptr);
-            check_hresult(result, "Failed to create render target view")?;
+            if_not_success_err!(check_hresult(result, "Failed to create render target view"));
 
             ComPtr::new(ptr)
         };
@@ -148,7 +154,7 @@ impl Texture2D {
         device: &ID3D11Device,
         (width, height): (u32, u32),
         fmt: D3DFORMAT,
-    ) -> Result<Self> {
+    ) -> Result<Self, Error> {
         let fmt = d3d_format_to_dxgi(fmt);
 
         let desc = D3D11_TEXTURE2D_DESC {
@@ -168,7 +174,10 @@ impl Texture2D {
             let mut ptr = ptr::null_mut();
 
             let result = device.CreateTexture2D(&desc, ptr::null(), &mut ptr);
-            check_hresult(result, "Failed to create depth/stencil texture")?;
+            if_not_success_err!(check_hresult(
+                result,
+                "Failed to create depth/stencil texture"
+            ));
 
             ComPtr::new(ptr)
         };
@@ -177,14 +186,20 @@ impl Texture2D {
     }
 
     /// Creates a depth / stencil view from this texture.
-    pub fn create_ds_view(&self, device: &ID3D11Device) -> Result<ComPtr<ID3D11DepthStencilView>> {
+    pub fn create_ds_view(
+        &self,
+        device: &ID3D11Device,
+    ) -> Result<ComPtr<ID3D11DepthStencilView>, Error> {
         let resource = self.as_resource();
 
         let view = unsafe {
             let mut ptr = ptr::null_mut();
 
             let result = device.CreateDepthStencilView(resource, ptr::null(), &mut ptr);
-            check_hresult(result, "Failed to create depth / stencil view")?;
+            if_not_success_err!(check_hresult(
+                result,
+                "Failed to create depth / stencil view"
+            ));
 
             ComPtr::new(ptr)
         };

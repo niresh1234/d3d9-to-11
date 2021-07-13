@@ -83,7 +83,7 @@ impl std::ops::Deref for Thunk {
 }
 //untested fix
 impl std::ops::DerefMut for Thunk {
-   // type Target = Resource;
+    // type Target = Resource;
     fn deref_mut(&mut self) -> &mut Resource {
         &mut self.rsrc
     }
@@ -98,7 +98,7 @@ impl Resource {
 
     /// Returns the parent device.
     fn get_device(self: &Thunk, ret: *mut *mut Device) -> Error {
-        let ret = check_mut_ref(ret)?;
+        let ret = if_error!(check_mut_ref(ret));
         *ret = com_ref(self.device);
         Error::Success
     }

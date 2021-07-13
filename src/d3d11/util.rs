@@ -1,7 +1,7 @@
 use winapi::um::d3d11::*;
 
 use crate::core::*;
-use crate::Result;
+use crate::Error;
 
 /// Converts D3D9's buffer/texture usage and pool flags to corresponding D3D11 flags.
 ///
@@ -9,7 +9,7 @@ use crate::Result;
 pub fn d3d_usage_to_d3d11(
     uflags: UsageFlags,
     pool: MemoryPool,
-) -> Result<(D3D11_USAGE, D3D11_BIND_FLAG, D3D11_CPU_ACCESS_FLAG)> {
+) -> Result<(D3D11_USAGE, D3D11_BIND_FLAG, D3D11_CPU_ACCESS_FLAG), Error> {
     let mut usage = D3D11_USAGE_DEFAULT;
     let mut cpu_flags = 0;
 

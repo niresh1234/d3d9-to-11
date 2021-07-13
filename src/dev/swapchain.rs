@@ -14,7 +14,7 @@ use comptr::ComPtr;
 
 use crate::core::{fmt::d3d_display_format_to_dxgi, msample::d3d9_to_dxgi_samples, *};
 use crate::d3d11;
-use crate::{Error, Result};
+use crate::Error;
 
 use super::{Device, Surface, SurfaceData};
 
@@ -47,7 +47,7 @@ impl SwapChain {
         factory: &IDXGIFactory,
         pp: &mut D3DPRESENT_PARAMETERS,
         window: HWND,
-    ) -> Result<ComPtr<Self>> {
+    ) -> Result<ComPtr<Self>, Error> {
         // First we need to set up the description of this swap chain.
         let mut sc_desc = {
             // Fill in the description of the back buffer.
@@ -166,7 +166,7 @@ impl SwapChain {
                 &mut sc_desc,
                 &mut ptr,
             );
-            check_hresult(result, "Failed to create swap chain")?;
+            if_not_success_err!(check_hresult(result, "Failed to create swap chain"));
 
             ComPtr::new(ptr)
         };
@@ -189,7 +189,7 @@ impl SwapChain {
     }
 
     /// Retrieves a buffer in this swap chain.
-    pub fn buffer(&self, id: u32) -> Result<d3d11::Texture2D> {
+    pub fn buffer(&self, id: u32) -> Result<d3d11::Texture2D, Error> {
         let mut ptr: *mut ID3D11Texture2D = ptr::null_mut();
         let uuid = ID3D11Texture2D::uuidof();
 
@@ -197,17 +197,20 @@ impl SwapChain {
 
         let result = unsafe { self.swap_chain.GetBuffer(id, &uuid, ret) };
 
-        check_hresult(result, "Failed to retrieve swap chain buffer")?;
+        if_not_success_err!(check_hresult(
+            result,
+            "Failed to retrieve swap chain buffer"
+        ));
 
         Ok(ComPtr::new(ptr).into())
     }
 
     // Retrieves this swap chain's containing output.
-    fn output(&self) -> Result<ComPtr<IDXGIOutput>> {
+    fn output(&self) -> Result<ComPtr<IDXGIOutput>, Error> {
         let output = unsafe {
             let mut ptr = ptr::null_mut();
             let result = self.swap_chain.GetContainingOutput(&mut ptr);
-            check_hresult(result, "Failed to get swap chain's output")?;
+            if_not_success_err!(check_hresult(result, "Failed to get swap chain's output"));
             ComPtr::new(ptr)
         };
 
@@ -215,7 +218,7 @@ impl SwapChain {
     }
 
     /// Sets the associated output's gamma ramp.
-    pub fn set_gamma_ramp(&self, flags: u32, _ramp: &D3DGAMMARAMP) -> Result<()> {
+    pub fn set_gamma_ramp(&self, flags: u32, _ramp: &D3DGAMMARAMP) -> Result<(), Error> {
         if self.pp.Windowed == 1 {
             return Err(Error::InvalidCall);
         }
@@ -235,7 +238,7 @@ impl SwapChain {
     }
 
     /// Gets the associated output's gamma ramp.
-    pub fn get_gamma_ramp(&self, _ramp: &mut D3DGAMMARAMP) -> Result<()> {
+    pub fn get_gamma_ramp(&self, _ramp: &mut D3DGAMMARAMP) -> Result<(), Error> {
         let _output = self.output()?;
 
         error!("Getting gamma ramp is not supported");
@@ -313,7 +316,7 @@ impl SwapChain {
         ty: D3DBACKBUFFER_TYPE,
         surf: *mut *mut Surface,
     ) -> Error {
-        let surf = check_mut_ref(surf)?;
+        let surf = if_error!(check_mut_ref(surf));
 
         // Buffer indices start from 0.
         if idx >= self.pp.BackBufferCount {
@@ -326,7 +329,7 @@ impl SwapChain {
         }
 
         // Retrieve the 2D texture representing this back buffer.
-        let buffer = self.buffer(idx)?;
+        let buffer = if_error!(self.buffer(idx));
 
         // Create and return a pointer to the surface.
         *surf = Surface::new(
@@ -335,14 +338,15 @@ impl SwapChain {
             UsageFlags::RENDER_TARGET,
             MemoryPool::Default,
             SurfaceData::None,
-        ).into();
+        )
+        .into();
 
         Error::Success
     }
 
     /// Gets the status of the current scanline the rasterizer is processing.
     pub fn get_raster_status(&self, rs: *mut D3DRASTER_STATUS) -> Error {
-        check_mut_ref(rs)?;
+        if_error!(check_mut_ref(rs));
 
         // We reported in the device caps that we don't support this.
         Error::NotAvailable
@@ -350,7 +354,7 @@ impl SwapChain {
 
     /// Retrieves the swap chain's display mode.
     pub fn get_display_mode(&self, dm: *mut D3DDISPLAYMODE) -> Error {
-        let dm = check_mut_ref(dm)?;
+        let dm = if_error!(check_mut_ref(dm));
         let pp = &self.pp;
 
         *dm = D3DDISPLAYMODE {
@@ -365,14 +369,14 @@ impl SwapChain {
 
     /// Gets the device which created this object.
     pub fn get_device(&self, device: *mut *mut Device) -> Error {
-        let device = check_mut_ref(device)?;
+        let device = if_error!(check_mut_ref(device));
         *device = com_ref(self.parent);
         Error::Success
     }
 
     /// Retrieves the presentation parameters this swap chain was created with.
     pub fn get_present_parameters(&self, pp: *mut D3DPRESENT_PARAMETERS) -> Error {
-        let pp = check_mut_ref(pp)?;
+        let pp = if_error!(check_mut_ref(pp));
         *pp = self.pp;
         Error::Success
     }
