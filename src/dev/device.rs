@@ -16,6 +16,7 @@ use super::*;
 use crate::core::*;
 use crate::d3d11;
 use crate::Error;
+use winapi::shared::minwindef::{DWORD, UINT};
 
 /// Structure representing a logical graphics device.
 #[interface(IDirect3DDevice9)]
@@ -651,8 +652,20 @@ impl Device {
     fn stretch_rect() {
         unimplemented!()
     }
-    fn color_fill() {
-        unimplemented!()
+    fn color_fill(&self, surface: *mut Surface, rect: *const RECT, color: D3DCOLOR) -> Error {
+        warn!(
+            "unimplemented: color_fill({:?}, {:?}, {})",
+            surface, rect, color
+        );
+        let surface = if_error!(check_mut_ref(surface));
+
+        // Basically we would need to fill a buffer with the color manually,
+        // _but_ the data layout is format dependant.
+
+        // We can use https://docs.microsoft.com/en-us/windows/win32/api/d3d11_1/nf-d3d11_1-id3d11devicecontext1-clearview
+        // ClearView, but that requires float[4] instead of D3DCOLOR
+        // but also ClearView is DX11.1
+        Error::Success
     }
 
     // -- Texture creation functions --
@@ -744,12 +757,24 @@ impl Device {
 
     // -- Drawing functions --
 
-    fn clear() {
-        unimplemented!()
+    fn clear(
+        &self,
+        count: DWORD,
+        rect: *mut *const RECT,
+        flags: DWORD,
+        color: D3DCOLOR,
+        z: f32,
+        stencil: DWORD,
+    ) -> Error {
+        warn!("Unimplemented clear");
+        Error::Success
     }
 
-    fn begin_scene() {
-        unimplemented!()
+    fn begin_scene(&self) -> Error {
+        // TODO: BeginScene should handle if EndScene wasn't properly called.
+        // It should potentially also clear some stuff
+
+        Error::Success
     }
     fn end_scene() {
         unimplemented!()
@@ -869,8 +894,14 @@ impl Device {
     }
 
     /// Sets the current vertex shader.
-    fn set_vertex_shader(&mut self, vs: *const VertexShader) -> Error {
+    fn set_vertex_shader(&mut self, vs_raw_ptr: *const VertexShader) -> Error {
+        trace!("set_vertex_shader");
+        let vs = if_error!(check_ref(vs_raw_ptr));
         self.istate.set_vertex_shader(vs);
+        unsafe {
+            self.device_context()
+                .VSSetShader(vs.get_dx11().as_mut(), ptr::null_mut(), 0);
+        }
         Error::Success
     }
 
@@ -878,6 +909,8 @@ impl Device {
     fn get_vertex_shader(&self, ret: *mut *const VertexShader) -> Error {
         let ret = if_error!(check_mut_ref(ret));
         *ret = self.istate.get_vertex_shader();
+        // TODO: somehow use DX11 GetVertexShader and wrap it, so _we_ aren't responsible for the state?
+        // But then how to look it up properly.
         Error::Success
     }
 
@@ -887,8 +920,27 @@ impl Device {
     fn get_vertex_shader_constant_b() {
         unimplemented!()
     }
-    fn set_vertex_shader_constant_f() {
-        unimplemented!()
+    fn set_vertex_shader_constant_f(
+        &self,
+        start_register: UINT,
+        constant_data: *const f32,
+        vector4f_count: UINT,
+    ) -> Error {
+        warn!(
+            "TODO: Implement set_vertex_shader_constant_f({}, {:?}, {})",
+            start_register, constant_data, vector4f_count
+        );
+        // According to DX11, up to 16 registers are allowed?
+
+        // TODO: typically we would create one buffer per shader
+        unsafe {
+            // TODO: properly create the buffer. But then also: how to reference them properly?
+            // Does it work magically when just assuming one buffer is one constant?
+            /*let buf: *mut ID3D11Buffer = ptr::null_mut();
+            self.device_context()
+            .VSSetConstantBuffers(start_register, 1, &buf);*/
+        }
+        Error::Success
     }
     fn get_vertex_shader_constant_f() {
         unimplemented!()
@@ -960,8 +1012,28 @@ impl Device {
         Error::Success
     }
 
-    fn set_stream_source() {
-        unimplemented!()
+    fn set_stream_source(
+        &self,
+        stream_number: UINT,
+        stream_data: *mut VertexBuffer,
+        offset_in_bytes: UINT,
+        stride: UINT,
+    ) -> Error {
+        // TODO: When grouping buffers together, we can reduce API calls, but for this we need a
+        // reliable way of knowing when we've reached the last s_s_s call, introducing state bookkeeping and related issues.
+        trace!("SetStreamSource");
+        let vb = if_error!(check_ref(stream_data));
+
+        unsafe {
+            self.device_context().IASetVertexBuffers(
+                stream_number,
+                1,
+                &vb.get_dx11().as_buffer(),
+                &stride,
+                &offset_in_bytes,
+            );
+        }
+        Error::Success
     }
     fn get_stream_source() {
         unimplemented!()
@@ -1018,8 +1090,17 @@ impl Device {
     fn get_pixel_shader_constant_b() {
         unimplemented!()
     }
-    fn set_pixel_shader_constant_f() {
-        unimplemented!()
+    fn set_pixel_shader_constant_f(
+        &self,
+        start_register: UINT,
+        constant_data: *const f32,
+        vector4f_count: UINT,
+    ) -> Error {
+        warn!(
+            "TODO: Implement set_pixel_shader_constant_f({}, {:?}, {})",
+            start_register, constant_data, vector4f_count
+        );
+        Error::Success
     }
     fn get_pixel_shader_constant_f() {
         unimplemented!()
@@ -1204,8 +1285,11 @@ impl Device {
     fn set_f_v_f() {
         unimplemented!()
     }
-    fn set_indices() {
-        unimplemented!()
+    fn set_indices(&mut self, idx: *mut IDirect3DIndexBuffer9) -> Error {
+        warn!("TODO: SetIndices on unsupported Fixed Function Pipeline!");
+        if_error!(check_ref(idx));
+        self.istate.set_index(idx);
+        Error::Success
     }
     fn set_light() {
         unimplemented!()
