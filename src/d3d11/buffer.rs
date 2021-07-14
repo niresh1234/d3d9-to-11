@@ -60,4 +60,8 @@ impl Buffer {
             buf
         }
     }
+
+    pub fn as_buffer(&self) -> *mut ID3D11Buffer {
+        self.buffer.as_mut()
+    }
 }

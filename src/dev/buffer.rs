@@ -40,6 +40,10 @@ impl VertexBuffer {
 
         unsafe { new_com_interface(vb) }
     }
+
+    pub fn get_dx11(&self) -> &d3d11::Buffer {
+        &self.buffer
+    }
 }
 
 impl std::ops::Deref for VertexBuffer {
