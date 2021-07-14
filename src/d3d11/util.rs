@@ -23,8 +23,13 @@ pub fn d3d_usage_to_d3d11(
             }
         }
         MemoryPool::Managed => {
-            usage = D3D11_USAGE_DYNAMIC;
-            cpu_flags = D3D11_CPU_ACCESS_WRITE;
+            if uflags.intersects(write_to) {
+                usage = D3D11_USAGE_DYNAMIC;
+                cpu_flags = D3D11_CPU_ACCESS_WRITE;
+            } else {
+                usage = D3D11_USAGE_STAGING;
+                cpu_flags = D3D11_CPU_ACCESS_WRITE | D3D11_CPU_ACCESS_READ;
+            }
         }
         MemoryPool::SystemMem => {
             if uflags.intersects(write_to) {
