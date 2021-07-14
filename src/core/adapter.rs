@@ -86,7 +86,7 @@ impl Adapter {
                 d3dcommon::D3D_DRIVER_TYPE_UNKNOWN,
                 ptr::null_mut(),
                 // No additional flags.
-                0,
+                D3D11_CREATE_DEVICE_DEBUG,
                 // We will use whichever feature level is supported.
                 ptr::null_mut(),
                 0,
