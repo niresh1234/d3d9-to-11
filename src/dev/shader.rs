@@ -10,6 +10,8 @@ use comptr::ComPtr;
 use crate::{core::*, Error};
 
 use super::Device;
+use std::ffi::c_void;
+use winapi::um::d3d11::ID3D11VertexShader;
 
 /// Given a pointer to an array of tokens (forming up a shader),
 /// returns a box containing the tokens.
@@ -72,6 +74,7 @@ pub struct VertexShader {
     refs: AtomicU32,
     device: *const Device,
     code: Box<[u32]>,
+    dx11: ComPtr<ID3D11VertexShader>,
 }
 
 impl VertexShader {
@@ -79,14 +82,32 @@ impl VertexShader {
     pub fn new(device: &Device, func: *const u32) -> Result<ComPtr<Self>, Error> {
         let code = tokens_to_box(func);
 
+        let dx11 = unsafe {
+            let mut p_vs = core::ptr::null_mut();
+            let result = device.dx11_device().CreateVertexShader(
+                code.as_ptr() as *const c_void,
+                code.len() * 4,
+                core::ptr::null_mut(),
+                &mut p_vs,
+            );
+
+            if_not_success_err!(check_hresult(result, "Failed to create vertex shader"));
+            ComPtr::new(p_vs)
+        };
+
         let vs = Self {
             __vtable: Box::new(Self::create_vtable()),
             refs: AtomicU32::new(1),
             device,
             code,
+            dx11,
         };
 
         Ok(unsafe { new_com_interface(vs) })
+    }
+
+    pub fn get_dx11(&self) -> &ComPtr<ID3D11VertexShader> {
+        &self.dx11
     }
 }
 
