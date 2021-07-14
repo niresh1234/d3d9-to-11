@@ -56,7 +56,7 @@ pub unsafe extern "stdcall" fn Direct3DCreate9Ex(
 #[no_mangle]
 pub unsafe extern "stdcall" fn D3DPERF_BeginEvent(col: D3DCOLOR, wsz_name: LPCWSTR) -> i32 {
     let name = U16CStr::from_ptr_str(wsz_name);
-    warn!("BeginEvent({}, {:?})", col, name);
+    warn!("BeginEvent({}, {})", col, name.to_string_lossy());
     0
 }
 
