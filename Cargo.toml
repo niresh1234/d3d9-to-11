@@ -17,8 +17,8 @@ log = "0.4"
 env_logger = {version = "0.5", optional = true}
 win_dbg_logger = { version = "0.1.0", optional = true }
 comptr = { git = "https://github.com/GabrielMajeri/comptr-rs" }
-#com-impl = { git = "https://github.com/GabrielMajeri/com-impl-rs" }
-com-impl = { path = "../com-impl-rs" }
+com-impl = { git = "https://github.com/MeFisto94/com-impl-rs" }
+#com-impl = { path = "../com-impl-rs" }
 bitflags = "1"
 nalgebra = "0.16"
 widestring = "0.4.3"
