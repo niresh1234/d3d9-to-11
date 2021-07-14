@@ -7,6 +7,11 @@
 use winapi::shared::d3d9types::*;
 use winapi::shared::dxgiformat::*;
 
+const ATI2: u32 = 843666497;
+const NULL: u32 = 0x4C4C554E;
+const RAWZ: u32 = 1515667794;
+const INTZ: u32 = 1515474505;
+
 /// Converts a display mode format to its corresponding DXGI format.
 pub fn d3d_display_format_to_dxgi(fmt: D3DFORMAT) -> DXGI_FORMAT {
     match fmt {
@@ -37,6 +42,8 @@ pub fn is_depth_stencil_format(fmt: D3DFORMAT) -> bool {
     match fmt {
         // TODO: there are also some unused formats in this range.
         // Need to check all formats in this range to be valid.
+        RAWZ => true,
+        INTZ => true,
         D3DFMT_D16_LOCKABLE..=D3DFMT_S8_LOCKABLE => true,
         _ => false,
     }
@@ -108,6 +115,16 @@ format_conv! {
     D3DFMT_DXT3 => DXGI_FORMAT_BC3_UNORM,
     D3DFMT_DXT4 => DXGI_FORMAT_BC4_UNORM,
     D3DFMT_DXT5 => DXGI_FORMAT_BC5_UNORM,
+
+    // ATI2, TODO: https://aras-p.info/texts/D3D9GPUHacks.html red and green channel swap
+    ATI2 => DXGI_FORMAT_BC5_UNORM,
+    // TODO: What is NULL even?
+    NULL => NULL,
+    // Depth Stencil (https://forum.beyond3d.com/threads/multisample-depth-buffer-resolve.38711/)
+    // claiming that RAWZ is different in terms of compression, maybe we should make RAWZ fail
+    // and only support INTZ
+    RAWZ => DXGI_FORMAT_D24_UNORM_S8_UINT,
+    INTZ => DXGI_FORMAT_D24_UNORM_S8_UINT,
 
     // Special formats: mostly used for hardware video.
     D3DFMT_R8G8_B8G8 => DXGI_FORMAT_G8R8_G8B8_UNORM,
